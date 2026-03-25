@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "360watts",
+    "slug": "360watts-field-ops",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#080C10"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.solarBy360watts.fieldops",
+      "adaptiveIcon": {
+        "backgroundColor": "#080C10",
+        "foregroundImage": "./assets/adaptive-icon-dark.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-asset"
+    ],
+    "updates": {
+      "url": "https://u.expo.dev/2602e455-c8dd-40ee-8edc-9e2b2fc47938",
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "2602e455-c8dd-40ee-8edc-9e2b2fc47938"
+      }
+    }
+  }
+}
