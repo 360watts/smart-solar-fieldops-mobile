@@ -64,3 +64,9 @@ Victory Native (`victory-native`) renders line/area charts. Large datasets are d
 
 ### Babel / Reanimated
 `babel.config.js` includes `react-native-worklets/plugin`. Any file using `useAnimatedStyle`, `useSharedValue`, etc. must be compatible with the Reanimated worklet runtime — avoid closures over non-serialisable values.
+
+## Production Fault Log
+
+Faults, root causes, and fixes are recorded in [`FAULT_LOG.md`](./FAULT_LOG.md) at the repo root.
+
+**Workflow:** discover fault → open GitHub Issue → fix (reference issue # in commits) → append entry to `FAULT_LOG.md` → close issue.
