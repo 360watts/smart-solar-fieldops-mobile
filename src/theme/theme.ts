@@ -38,13 +38,39 @@ export const AppTheme = {
     loadColor:    '#CBD5E1',
     gridColor:    '#4B9EFF',
     battColor:    '#FFB020',
+
+    // ── Extended semantic ─────────────────────────────────────────────────
+    purple:       '#AB7EFF',
+    purpleSoft:   'rgba(171,126,255,0.12)',
+    indigo:       '#818CF8',
+    indigoSoft:   'rgba(129,140,248,0.12)',
+
+    // ── Tab bar ───────────────────────────────────────────────────────────
+    tabBar:       'rgba(13, 18, 26, 0.97)',
+
+    // ── Overlays ──────────────────────────────────────────────────────────
+    overlay:      'rgba(0,0,0,0.65)',
   },
 
   gradients: {
-    loginBg:      ['#000000', '#040C06', '#000000'] as string[],
-    accentStripe: ['rgba(0,200,83,0.22)', 'rgba(0,200,83,0)'] as string[],
-    solar:        ['#FFB020', '#F97316'] as string[],
-    danger:       ['rgba(255,77,77,0.22)', 'rgba(255,77,77,0)'] as string[],
+    loginBg:      ['#000000', '#040C06', '#000000'] as [string, string, string],
+    accentStripe: ['rgba(0,200,83,0.22)', 'rgba(0,200,83,0)'] as [string, string],
+    solar:        ['#FFB020', '#F97316'] as [string, string],
+    danger:       ['rgba(255,77,77,0.22)', 'rgba(255,77,77,0)'] as [string, string],
+    accent:       ['#00D95F', '#00A63E'] as [string, string],
+  },
+
+  typography: {
+    displayXL:  { fontSize: 32, fontWeight: '800' as const, letterSpacing: -0.8 },
+    display:    { fontSize: 26, fontWeight: '800' as const, letterSpacing: -0.5 },
+    heading:    { fontSize: 20, fontWeight: '700' as const, letterSpacing: -0.3 },
+    subheading: { fontSize: 16, fontWeight: '700' as const },
+    body:       { fontSize: 14, fontWeight: '400' as const, lineHeight: 20 },
+    caption:    { fontSize: 12, fontWeight: '400' as const },
+    label:      { fontSize: 11, fontWeight: '700' as const, letterSpacing: 1, textTransform: 'uppercase' as const },
+    mono:       { fontFamily: 'monospace', fontSize: 13 },
+    metricLg:   { fontSize: 28, fontWeight: '800' as const, letterSpacing: -0.8 },
+    metricSm:   { fontSize: 22, fontWeight: '700' as const, letterSpacing: -0.5 },
   },
 
   radii: {

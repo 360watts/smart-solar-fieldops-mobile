@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -48,11 +49,12 @@ function Field({
   hint?: string;
   mono?: boolean;
 }) {
+  const [focused, setFocused] = useState(false);
   return (
     <View style={fieldStyles.wrap}>
       <Text style={fieldStyles.label}>{label}</Text>
       <TextInput
-        style={[fieldStyles.input, mono && fieldStyles.mono]}
+        style={[fieldStyles.input, mono && fieldStyles.mono, focused && fieldStyles.inputFocused]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -60,6 +62,8 @@ function Field({
         keyboardType={keyboardType}
         autoCapitalize="none"
         autoCorrect={false}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
       />
       {hint && <Text style={fieldStyles.hint}>{hint}</Text>}
     </View>
@@ -85,6 +89,10 @@ const fieldStyles = StyleSheet.create({
     paddingVertical: 12,
     color: AppTheme.colors.text,
     fontSize: 15,
+  },
+  inputFocused: {
+    borderColor: AppTheme.colors.accent,
+    backgroundColor: AppTheme.colors.accentSoft,
   },
   mono: { fontFamily: 'monospace' },
   hint: {
@@ -246,8 +254,15 @@ export function Step2SiteInfo() {
             onPress={handleNext}
             disabled={!isValid}
           >
-            <Text style={styles.nextBtnText}>Continue — Owner</Text>
-            <Ionicons name="arrow-forward" size={18} color="#fff" />
+            <LinearGradient
+              colors={AppTheme.gradients.accent}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.nextBtnGradient}
+            >
+              <Text style={styles.nextBtnText}>Continue — Owner</Text>
+              <Ionicons name="arrow-forward" size={18} color="#fff" />
+            </LinearGradient>
           </Pressable>
         </View>
       </View>
@@ -339,11 +354,13 @@ const styles = StyleSheet.create({
     backgroundColor: AppTheme.colors.surface,
   },
   nextBtn: {
+    borderRadius: AppTheme.radii.md,
+    overflow: 'hidden',
+  },
+  nextBtnGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: AppTheme.colors.accent,
-    borderRadius: AppTheme.radii.md,
     height: 52,
     gap: 8,
   },

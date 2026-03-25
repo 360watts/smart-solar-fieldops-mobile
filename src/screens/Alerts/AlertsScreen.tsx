@@ -101,9 +101,8 @@ function AlertCard({
             </Text>
           </View>
         )}
-
-        <Text style={styles.alertTime}>{formatISTTime(alert.timestamp)}</Text>
       </View>
+      <Text style={styles.alertTime}>{formatISTTime(alert.timestamp)}</Text>
 
       {/* Message */}
       <Text style={[styles.alertMessage, isResolved && styles.alertMessageResolved]}>
@@ -250,6 +249,9 @@ export function AlertsScreen() {
             style={[styles.statusBtn, statusFilter === s && styles.statusBtnActive]}
             onPress={() => setStatusFilter(s)}
           >
+            {statusFilter === s && (
+              <View style={styles.statusBtnDot} />
+            )}
             <Text style={[styles.statusBtnText, statusFilter === s && styles.statusBtnTextActive]}>
               {s}
             </Text>
@@ -295,11 +297,13 @@ export function AlertsScreen() {
           )}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons
-                name={statusFilter === 'Active' ? 'checkmark-circle-outline' : 'archive-outline'}
-                size={40}
-                color={AppTheme.colors.dimText}
-              />
+              <View style={styles.emptyIconWrap}>
+                <Ionicons
+                  name={statusFilter === 'Active' ? 'checkmark-circle-outline' : 'archive-outline'}
+                  size={32}
+                  color={AppTheme.colors.dimText}
+                />
+              </View>
               <Text style={styles.emptyTitle}>
                 {statusFilter === 'Active' ? 'No active alerts' : 'No resolved alerts'}
               </Text>
@@ -318,7 +322,13 @@ export function AlertsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: AppTheme.colors.bg },
-  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: AppTheme.colors.border,
+  },
   headerTitle: {
     color: AppTheme.colors.text,
     fontSize: 26,
@@ -379,12 +389,12 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
   },
-  alertCardResolved: { opacity: 0.6 },
+  alertCardResolved: { opacity: 0.55 },
   alertHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 10,
+    marginBottom: 8,
     flexWrap: 'wrap',
   },
   severityBadge: {
@@ -406,10 +416,15 @@ const styles = StyleSheet.create({
   statusAcknowledged: { backgroundColor: AppTheme.colors.warningSoft },
   statusText: { color: AppTheme.colors.mutedText, fontSize: 11, fontWeight: '700' },
   alertTime: {
-    flex: 1,
     color: AppTheme.colors.dimText,
     fontSize: 11,
-    textAlign: 'right',
+    marginTop: 4,
+  },
+  statusBtnDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: AppTheme.colors.accent,
   },
   alertMessage: {
     color: AppTheme.colors.text,
@@ -448,6 +463,17 @@ const styles = StyleSheet.create({
   actionBtnResolve: { backgroundColor: AppTheme.colors.successSoft },
   actionBtnText: { fontSize: 12, fontWeight: '700' },
   empty: { alignItems: 'center', paddingVertical: 60, gap: 8 },
+  emptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: AppTheme.colors.card,
+    borderWidth: 1,
+    borderColor: AppTheme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
   emptyTitle: { color: AppTheme.colors.text, fontSize: 16, fontWeight: '700', marginTop: 8 },
   emptySub: {
     color: AppTheme.colors.mutedText,

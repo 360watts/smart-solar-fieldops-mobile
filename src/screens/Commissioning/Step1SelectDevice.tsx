@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -98,7 +99,9 @@ export function Step1SelectDevice() {
           <ActivityIndicator color={AppTheme.colors.accent} style={{ marginTop: 40 }} />
         ) : filtered.length === 0 ? (
           <View style={styles.empty}>
-            <Ionicons name="hardware-chip-outline" size={36} color={AppTheme.colors.dimText} />
+            <View style={styles.emptyIconWrap}>
+              <Ionicons name="hardware-chip-outline" size={28} color={AppTheme.colors.dimText} />
+            </View>
             <Text style={styles.emptyTitle}>No unassigned devices</Text>
             <Text style={styles.emptySub}>
               {search ? 'No devices match your search' : 'All provisioned devices are already assigned to sites'}
@@ -154,8 +157,15 @@ export function Step1SelectDevice() {
           onPress={handleNext}
           disabled={!selected}
         >
-          <Text style={styles.nextBtnText}>Continue — Site Info</Text>
-          <Ionicons name="arrow-forward" size={18} color="#fff" />
+          <LinearGradient
+            colors={AppTheme.gradients.accent}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.nextBtnGradient}
+          >
+            <Text style={styles.nextBtnText}>Continue — Site Info</Text>
+            <Ionicons name="arrow-forward" size={18} color="#fff" />
+          </LinearGradient>
         </Pressable>
       </View>
     </View>
@@ -257,6 +267,17 @@ const styles = StyleSheet.create({
     paddingVertical: 48,
     gap: 8,
   },
+  emptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: AppTheme.colors.card,
+    borderWidth: 1,
+    borderColor: AppTheme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
   emptyTitle: {
     color: AppTheme.colors.text,
     fontSize: 16,
@@ -277,11 +298,13 @@ const styles = StyleSheet.create({
     backgroundColor: AppTheme.colors.surface,
   },
   nextBtn: {
+    borderRadius: AppTheme.radii.md,
+    overflow: 'hidden',
+  },
+  nextBtnGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: AppTheme.colors.accent,
-    borderRadius: AppTheme.radii.md,
     height: 52,
     gap: 8,
   },

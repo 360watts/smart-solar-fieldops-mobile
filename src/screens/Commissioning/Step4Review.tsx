@@ -14,6 +14,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { LinearGradient } from 'expo-linear-gradient';
 import { AppTheme } from '../../theme/theme';
 import {
   createUser,
@@ -213,17 +214,24 @@ export function Step4Review() {
           onPress={handleActivate}
           disabled={activating}
         >
-          {activating ? (
-            <>
-              <ActivityIndicator color="#fff" size="small" />
-              <Text style={styles.activateBtnText}>Activating…</Text>
-            </>
-          ) : (
-            <>
-              <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-              <Text style={styles.activateBtnText}>Activate Site</Text>
-            </>
-          )}
+          <LinearGradient
+            colors={AppTheme.gradients.accent}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.activateBtnGradient}
+          >
+            {activating ? (
+              <>
+                <ActivityIndicator color="#fff" size="small" />
+                <Text style={styles.activateBtnText}>Activating…</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+                <Text style={styles.activateBtnText}>Activate Site</Text>
+              </>
+            )}
+          </LinearGradient>
         </Pressable>
       </View>
     </View>
@@ -298,18 +306,20 @@ const styles = StyleSheet.create({
     backgroundColor: AppTheme.colors.surface,
   },
   activateBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: AppTheme.colors.accent,
     borderRadius: AppTheme.radii.md,
-    height: 52,
-    gap: 8,
+    overflow: 'hidden',
     shadowColor: AppTheme.colors.accent,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 12,
     elevation: 6,
+  },
+  activateBtnGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 52,
+    gap: 8,
   },
   activateBtnLoading: { opacity: 0.7 },
   activateBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },

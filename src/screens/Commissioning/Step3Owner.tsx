@@ -16,6 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 
+import { LinearGradient } from 'expo-linear-gradient';
 import { AppTheme } from '../../theme/theme';
 import { fetchUsers } from '../../api/smartSolar';
 import { StepHeader } from './StepHeader';
@@ -42,11 +43,12 @@ function Field({
   secureTextEntry?: boolean;
   keyboardType?: 'default' | 'email-address' | 'phone-pad';
 }) {
+  const [focused, setFocused] = useState(false);
   return (
     <View style={{ marginBottom: 14 }}>
       <Text style={fieldStyles.label}>{label}</Text>
       <TextInput
-        style={fieldStyles.input}
+        style={[fieldStyles.input, focused && fieldStyles.inputFocused]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -55,6 +57,8 @@ function Field({
         keyboardType={keyboardType}
         autoCapitalize="none"
         autoCorrect={false}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
       />
     </View>
   );
@@ -78,6 +82,10 @@ const fieldStyles = StyleSheet.create({
     paddingVertical: 12,
     color: AppTheme.colors.text,
     fontSize: 15,
+  },
+  inputFocused: {
+    borderColor: AppTheme.colors.accent,
+    backgroundColor: AppTheme.colors.accentSoft,
   },
 });
 
@@ -265,8 +273,15 @@ export function Step3Owner() {
             onPress={handleNext}
             disabled={!canContinue}
           >
-            <Text style={styles.nextBtnText}>Review & Activate</Text>
-            <Ionicons name="arrow-forward" size={18} color="#fff" />
+            <LinearGradient
+              colors={AppTheme.gradients.accent}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.nextBtnGradient}
+            >
+              <Text style={styles.nextBtnText}>Review & Activate</Text>
+              <Ionicons name="arrow-forward" size={18} color="#fff" />
+            </LinearGradient>
           </Pressable>
         </View>
       </View>
@@ -417,11 +432,13 @@ const styles = StyleSheet.create({
     backgroundColor: AppTheme.colors.surface,
   },
   nextBtn: {
+    borderRadius: AppTheme.radii.md,
+    overflow: 'hidden',
+  },
+  nextBtnGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: AppTheme.colors.accent,
-    borderRadius: AppTheme.radii.md,
     height: 52,
     gap: 8,
   },

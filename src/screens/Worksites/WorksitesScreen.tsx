@@ -9,6 +9,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
@@ -63,7 +64,13 @@ function SiteCard({
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      style={({ pressed }) => [
+        styles.card,
+        pressed && styles.cardPressed,
+        status === 'online' && { borderLeftColor: AppTheme.colors.accent, borderLeftWidth: 3 },
+        status === 'warning' && { borderLeftColor: AppTheme.colors.warning, borderLeftWidth: 3 },
+        status === 'offline' && { borderLeftColor: AppTheme.colors.danger, borderLeftWidth: 3 },
+      ]}
       onPress={onPress}
     >
       <View style={styles.cardHeader}>
@@ -99,6 +106,22 @@ function SiteCard({
           </View>
         )}
       </View>
+
+      {site.devices.length > 0 && (
+        <View style={styles.healthBar}>
+          <View
+            style={[
+              styles.healthBarFill,
+              {
+                width: `${(onlineCount / site.devices.length) * 100}%` as any,
+                backgroundColor: status === 'online' ? AppTheme.colors.accent
+                  : status === 'warning' ? AppTheme.colors.warning
+                  : AppTheme.colors.danger,
+              },
+            ]}
+          />
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -114,7 +137,7 @@ function UnassignedDeviceRow({
 }) {
   return (
     <Pressable
-      style={({ pressed }) => [styles.deviceRow, pressed && styles.cardPressed]}
+      style={({ pressed }) => [styles.deviceRow, pressed && styles.cardPressed, { borderLeftWidth: 3, borderLeftColor: AppTheme.colors.warning }]}
       onPress={onPress}
     >
       <View style={styles.deviceIconWrap}>
@@ -234,11 +257,18 @@ export function WorksitesScreen() {
       {/* Commission CTA — staff/admin only */}
       {canCommission && (
         <Pressable
-          style={({ pressed }) => [styles.commissionBtn, pressed && { opacity: 0.85 }]}
+          style={({ pressed }) => [styles.commissionBtn, pressed && { opacity: 0.88 }]}
           onPress={() => navigation.navigate('Commissioning')}
         >
-          <Ionicons name="add-circle-outline" size={20} color="#fff" />
-          <Text style={styles.commissionBtnText}>Commission New Site</Text>
+          <LinearGradient
+            colors={['#00D95F', '#00A63E']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.commissionBtnGradient}
+          >
+            <Ionicons name="add-circle-outline" size={20} color="#fff" />
+            <Text style={styles.commissionBtnText}>Commission New Site</Text>
+          </LinearGradient>
         </Pressable>
       )}
 
@@ -255,10 +285,15 @@ export function WorksitesScreen() {
         }
       >
         {sitesLoading ? (
-          <ActivityIndicator color={AppTheme.colors.accent} style={{ marginTop: 40 }} />
+          <View style={{ alignItems: 'center', paddingVertical: 40, gap: 10 }}>
+            <ActivityIndicator color={AppTheme.colors.accent} />
+            <Text style={{ color: AppTheme.colors.dimText, fontSize: 13 }}>Loading sites…</Text>
+          </View>
         ) : filtered.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="business-outline" size={40} color={AppTheme.colors.dimText} />
+            <View style={styles.emptyIconWrap}>
+              <Ionicons name="business-outline" size={32} color={AppTheme.colors.dimText} />
+            </View>
             <Text style={styles.emptyTitle}>
               {search ? 'No sites match your search' : 'No sites yet'}
             </Text>
@@ -366,20 +401,25 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   commissionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: AppTheme.colors.accent,
     borderRadius: AppTheme.radii.md,
     marginHorizontal: 20,
     marginBottom: 20,
     height: 48,
-    gap: 8,
+    overflow: 'hidden',
     shadowColor: AppTheme.colors.accent,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 12,
     elevation: 6,
+  },
+  commissionBtnGradient: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: AppTheme.radii.md,
+    height: 48,
   },
   commissionBtnText: {
     color: '#fff',
@@ -394,10 +434,10 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   sectionTitle: {
-    color: AppTheme.colors.mutedText,
+    color: AppTheme.colors.dimText,
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 1,
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
     marginBottom: 10,
   },
@@ -424,13 +464,16 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: AppTheme.colors.card,
     borderRadius: AppTheme.radii.lg,
-    borderWidth: 1,
+    borderTopWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderLeftWidth: 1,
     borderColor: AppTheme.colors.border,
     padding: 16,
     marginBottom: 10,
   },
   cardPressed: {
-    opacity: 0.75,
+    backgroundColor: AppTheme.colors.cardElevated,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -469,6 +512,17 @@ const styles = StyleSheet.create({
   cardStatLabel: {
     color: AppTheme.colors.mutedText,
     fontWeight: '400',
+  },
+  healthBar: {
+    height: 3,
+    backgroundColor: AppTheme.colors.borderMuted,
+    borderRadius: 2,
+    marginTop: 10,
+    overflow: 'hidden',
+  },
+  healthBarFill: {
+    height: 3,
+    borderRadius: 2,
   },
   chip: {
     flexDirection: 'row',
@@ -537,6 +591,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 60,
     gap: 8,
+  },
+  emptyIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: AppTheme.colors.card,
+    borderWidth: 1,
+    borderColor: AppTheme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   emptyTitle: {
     color: AppTheme.colors.text,

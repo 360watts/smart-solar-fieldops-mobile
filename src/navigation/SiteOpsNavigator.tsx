@@ -1,4 +1,5 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { MainTabs } from './tabs/MainTabs';
@@ -19,7 +20,10 @@ export function SiteOpsNavigator() {
       <Stack.Screen
         name="DeviceDetail"
         component={DeviceDetailScreen}
-        options={{ animation: 'slide_from_right' }}
+        options={{
+          animation: Platform.OS === 'ios' ? 'slide_from_bottom' : 'slide_from_right',
+          presentation: Platform.OS === 'ios' ? 'modal' : 'card',
+        }}
       />
     </Stack.Navigator>
   );

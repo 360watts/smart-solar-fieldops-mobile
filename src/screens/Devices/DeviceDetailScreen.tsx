@@ -81,12 +81,17 @@ export function DeviceDetailScreen() {
       >
         {/* Hero Card */}
         <View style={styles.heroCard}>
-          <View style={[styles.heroIcon, { backgroundColor: isOnline ? AppTheme.colors.accentSoft : AppTheme.colors.cardElevated }]}>
-            <Ionicons
-              name="hardware-chip"
-              size={32}
-              color={isOnline ? AppTheme.colors.accent : AppTheme.colors.dimText}
-            />
+          <View style={{ position: 'relative', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            {isOnline && (
+              <View style={styles.heroGlow} />
+            )}
+            <View style={[styles.heroIcon, { backgroundColor: isOnline ? AppTheme.colors.accentSoft : AppTheme.colors.cardElevated }]}>
+              <Ionicons
+                name="hardware-chip"
+                size={32}
+                color={isOnline ? AppTheme.colors.accent : AppTheme.colors.dimText}
+              />
+            </View>
           </View>
           <Text style={styles.heroSerial}>{device.device_serial}</Text>
           <View style={[
@@ -240,6 +245,13 @@ const styles = StyleSheet.create({
     padding: 28,
     alignItems: 'center',
     marginBottom: 24,
+  },
+  heroGlow: {
+    position: 'absolute',
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: AppTheme.colors.accentGlow,
   },
   heroIcon: {
     width: 72,

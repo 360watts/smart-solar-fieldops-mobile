@@ -238,7 +238,9 @@ export function DevicesScreen() {
         <ActivityIndicator color={AppTheme.colors.accent} style={{ marginTop: 40 }} />
       ) : siteDevices.length === 0 ? (
         <View style={styles.empty}>
-          <Ionicons name="hardware-chip-outline" size={40} color={AppTheme.colors.dimText} />
+          <View style={styles.emptyIconWrap}>
+            <Ionicons name="hardware-chip-outline" size={32} color={AppTheme.colors.dimText} />
+          </View>
           <Text style={styles.emptyTitle}>No devices</Text>
           <Text style={styles.emptySub}>
             This site has no linked devices yet. Commission a device from the Worksites screen.
@@ -295,6 +297,9 @@ export function DevicesScreen() {
           )}
           ListEmptyComponent={
             <View style={styles.empty}>
+              <View style={styles.emptyIconWrap}>
+                <Ionicons name="search-outline" size={28} color={AppTheme.colors.dimText} />
+              </View>
               <Text style={styles.emptyTitle}>No devices match</Text>
               <Text style={styles.emptySub}>Try a different search or filter</Text>
             </View>
@@ -307,7 +312,13 @@ export function DevicesScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: AppTheme.colors.bg },
-  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: AppTheme.colors.border,
+  },
   headerTitle: {
     color: AppTheme.colors.text,
     fontSize: 26,
@@ -418,6 +429,17 @@ const styles = StyleSheet.create({
   },
   statusBadgeText: { fontSize: 11, fontWeight: '700' },
   empty: { alignItems: 'center', paddingVertical: 56, paddingHorizontal: 32, gap: 8 },
+  emptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: AppTheme.colors.card,
+    borderWidth: 1,
+    borderColor: AppTheme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
   emptyTitle: { color: AppTheme.colors.text, fontSize: 16, fontWeight: '700', marginTop: 8 },
   emptySub: {
     color: AppTheme.colors.mutedText,

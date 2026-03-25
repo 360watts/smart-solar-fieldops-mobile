@@ -34,42 +34,48 @@ export function StepHeader({
         </Pressable>
       </View>
 
-      {/* Step indicators */}
+      {/* Step indicators — sibling-based connectors instead of absolute positioning */}
       <View style={styles.stepsRow}>
         {STEPS.map((label, idx) => {
           const step = idx + 1;
-          const done = step < currentStep;
+          const done   = step < currentStep;
           const active = step === currentStep;
           return (
-            <View key={label} style={styles.stepWrap}>
-              <View
-                style={[
-                  styles.stepDot,
-                  done && styles.stepDone,
-                  active && styles.stepActive,
-                ]}
-              >
-                {done ? (
-                  <Ionicons name="checkmark" size={12} color="#fff" />
-                ) : (
-                  <Text style={[styles.stepNum, active && styles.stepNumActive]}>
-                    {step}
-                  </Text>
-                )}
+            <React.Fragment key={label}>
+              {/* Step dot + label */}
+              <View style={styles.stepWrap}>
+                <View
+                  style={[
+                    styles.stepDot,
+                    done   && styles.stepDone,
+                    active && styles.stepActive,
+                  ]}
+                >
+                  {done ? (
+                    <Ionicons name="checkmark" size={12} color="#fff" />
+                  ) : (
+                    <Text style={[styles.stepNum, active && styles.stepNumActive]}>
+                      {step}
+                    </Text>
+                  )}
+                </View>
+                <Text
+                  style={[
+                    styles.stepLabel,
+                    active && styles.stepLabelActive,
+                    done   && styles.stepLabelDone,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {label}
+                </Text>
               </View>
-              <Text
-                style={[
-                  styles.stepLabel,
-                  active && styles.stepLabelActive,
-                  done && styles.stepLabelDone,
-                ]}
-              >
-                {label}
-              </Text>
+
+              {/* Connector line between steps */}
               {idx < STEPS.length - 1 && (
                 <View style={[styles.connector, done && styles.connectorDone]} />
               )}
-            </View>
+            </React.Fragment>
           );
         })}
       </View>
@@ -79,7 +85,7 @@ export function StepHeader({
 
 const styles = StyleSheet.create({
   wrap: {
-    backgroundColor: AppTheme.colors.surface,
+    backgroundColor: AppTheme.colors.bg,
     borderBottomWidth: 1,
     borderBottomColor: AppTheme.colors.border,
     paddingBottom: 16,
@@ -109,9 +115,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   stepWrap: {
-    flex: 1,
     alignItems: 'center',
-    position: 'relative',
+    gap: 4,
+  },
+  connector: {
+    flex: 1,
+    height: 2,
+    backgroundColor: AppTheme.colors.border,
+    marginBottom: 14, // aligns with center of stepDot (dot height 26 / 2 = 13 + 4 gap + label offset ~1)
+  },
+  connectorDone: {
+    backgroundColor: AppTheme.colors.accent,
   },
   stepDot: {
     width: 26,
@@ -122,7 +136,6 @@ const styles = StyleSheet.create({
     borderColor: AppTheme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
   },
   stepDone: {
     backgroundColor: AppTheme.colors.accent,
@@ -139,6 +152,7 @@ const styles = StyleSheet.create({
   },
   stepNumActive: {
     color: AppTheme.colors.accent,
+    fontWeight: '800',
   },
   stepLabel: {
     color: AppTheme.colors.dimText,
@@ -147,20 +161,10 @@ const styles = StyleSheet.create({
   },
   stepLabelActive: {
     color: AppTheme.colors.accent,
+    fontWeight: '700',
+    fontSize: 11,
   },
   stepLabelDone: {
     color: AppTheme.colors.mutedText,
-  },
-  connector: {
-    position: 'absolute',
-    top: 13,
-    right: -'50%' as any,
-    width: '100%',
-    height: 2,
-    backgroundColor: AppTheme.colors.border,
-    zIndex: -1,
-  },
-  connectorDone: {
-    backgroundColor: AppTheme.colors.accent,
   },
 });

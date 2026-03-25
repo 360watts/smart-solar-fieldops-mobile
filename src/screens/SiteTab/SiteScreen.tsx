@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { AppTheme } from '../../theme/theme';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { fetchSites, fetchUserSite } from '../../api/smartSolar';
 import { useSite } from '../../site/SiteContext';
 import { useAuth } from '../../auth/AuthContext';
@@ -148,10 +149,7 @@ export function SiteScreen() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Site</Text>
-        <Text style={styles.headerSub}>{activeSite?.display_name}</Text>
-      </View>
+      <ScreenHeader title="Site" subtitle={activeSite?.display_name} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -262,22 +260,19 @@ export function SiteScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: AppTheme.colors.bg },
-  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: {
-    color: AppTheme.colors.text,
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  headerSub: { color: AppTheme.colors.mutedText, fontSize: 13, marginTop: 2 },
   scroll: { paddingHorizontal: 16, paddingTop: 4 },
   card: {
     backgroundColor: AppTheme.colors.card,
     borderRadius: AppTheme.radii.lg,
-    borderWidth: 1,
+    borderTopWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderLeftWidth: 3,
     borderColor: AppTheme.colors.border,
+    borderLeftColor: AppTheme.colors.accent,
     padding: 16,
     marginBottom: 12,
+    overflow: 'hidden',
   },
   cardHeader: {
     flexDirection: 'row',

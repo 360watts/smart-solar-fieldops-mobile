@@ -11,6 +11,7 @@ export function KpiCard({
   iconName,
   renderIcon,
   isActive = false,
+  size = 'md',
 }: {
   title: string;
   value: string;
@@ -20,6 +21,8 @@ export function KpiCard({
   renderIcon?: (props: { color: string; size: number }) => React.ReactNode;
   /** When true adds a subtle glow border to highlight the card */
   isActive?: boolean;
+  /** 'sm' reduces padding and font sizes for compact layouts */
+  size?: 'sm' | 'md';
 }) {
   // Fade-in pulse for new values
   const fadeAnim = useRef(new Animated.Value(0.7)).current;
@@ -38,8 +41,8 @@ export function KpiCard({
         borderColor: isActive ? `${accent}50` : AppTheme.colors.border,
         borderWidth: 1,
         borderRadius: AppTheme.radii.lg,
-        padding: 13,
-        minHeight: 100,
+        padding: size === 'sm' ? 10 : 13,
+        minHeight: size === 'sm' ? 80 : 100,
         overflow: 'hidden',
         ...(isActive ? AppTheme.shadows.glow(accent) : {}),
       }}
@@ -100,7 +103,7 @@ export function KpiCard({
 
       {/* Value */}
       <Animated.Text
-        style={{ color: AppTheme.colors.text, fontSize: 21, fontWeight: '900', marginTop: 8, opacity: fadeAnim }}
+        style={{ color: AppTheme.colors.text, fontSize: size === 'sm' ? 17 : 21, fontWeight: '900', marginTop: 8, opacity: fadeAnim }}
         numberOfLines={1}
         adjustsFontSizeToFit
         minimumFontScale={0.7}
@@ -116,7 +119,7 @@ export function KpiCard({
       ) : null}
 
       {/* Accent bottom baseline bar */}
-      <View style={{ position: 'absolute', bottom: 0, left: 14, width: 24, height: 2, borderRadius: 1, backgroundColor: `${accent}50`, marginBottom: 8 }} />
+      <View style={{ position: 'absolute', bottom: 8, left: 14, width: 24, height: 2, borderRadius: 1, backgroundColor: `${accent}50` }} />
     </View>
   );
 }
