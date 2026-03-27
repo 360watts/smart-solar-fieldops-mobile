@@ -123,7 +123,7 @@ export function DevicesScreen() {
   // We merge them so each device row has complete info.
   const { data: sitesData, isLoading: sitesLoading, isRefetching, refetch: refetchSites } = useQuery({
     queryKey: ['sites'],
-    queryFn: fetchSites,
+    queryFn: () => fetchSites(),
     staleTime: 60_000,
     enabled: !!activeSite,
   });

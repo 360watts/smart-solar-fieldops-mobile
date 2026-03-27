@@ -4,14 +4,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTheme } from '../../theme/theme';
 
-const STEPS = ['Device', 'Site Info', 'Owner', 'Review'];
+const STEPS = ['Create Site', 'Assign Gateway', 'Complete'];
 
 export function StepHeader({
   currentStep,
   onBack,
   onClose,
 }: {
-  currentStep: 1 | 2 | 3 | 4;
+  currentStep: 1 | 2 | 3;
   onBack?: () => void;
   onClose: () => void;
 }) {

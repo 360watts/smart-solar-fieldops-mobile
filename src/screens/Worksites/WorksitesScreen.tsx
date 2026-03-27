@@ -18,7 +18,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { AppTheme } from '../../theme/theme';
 import { fetchSites, fetchDevices } from '../../api/smartSolar';
-import type { SiteItem } from '../../api/smartSolar';
+import type { SiteItem, SiteStatus } from '../../api/smartSolar';
 import { useSite } from '../../site/SiteContext';
 import { useAuth } from '../../auth/AuthContext';
 import { usePermissions } from '../../auth/usePermissions';
@@ -26,26 +26,54 @@ import type { RootStackParamList } from '../../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-function siteStatus(site: SiteItem): 'online' | 'warning' | 'offline' {
-  const total = site.devices.length;
-  if (total === 0) return 'offline';
-  const online = site.devices.filter(d => d.is_online).length;
-  if (online === 0) return 'offline';
-  if (online < total) return 'warning';
-  return 'online';
+function resolveLifecycleStatus(site: SiteItem): SiteStatus {
+  if (site.site_status) return site.site_status;
+  if (typeof site.is_active === 'boolean') return site.is_active ? 'active' : 'inactive';
+  return site.devices.length > 0 ? 'active' : 'draft';
 }
 
-function StatusChip({ status }: { status: 'online' | 'warning' | 'offline' }) {
-  const cfg = {
-    online:  { color: AppTheme.colors.success,  bg: AppTheme.colors.successSoft,  label: 'Online' },
-    warning: { color: AppTheme.colors.warning,   bg: AppTheme.colors.warningSoft,  label: 'Warning' },
-    offline: { color: AppTheme.colors.danger,    bg: AppTheme.colors.dangerSoft,   label: 'Offline' },
-  }[status];
+type GatewayState = 'online' | 'offline' | 'no-gateway';
 
+function resolveGatewayState(site: SiteItem): GatewayState {
+  if (site.gateway_device != null) {
+    return site.gateway_device.is_online ? 'online' : 'offline';
+  }
+  if (site.devices.length === 0) return 'no-gateway';
+  return site.devices.some(d => d.is_online) ? 'online' : 'offline';
+}
+
+function LifecycleChip({ status }: { status: SiteStatus }) {
+  const cfg: Record<SiteStatus, { color: string; bg: string; label: string }> = {
+    active:       { color: AppTheme.colors.success, bg: AppTheme.colors.successSoft, label: 'Active' },
+    commissioning:{ color: AppTheme.colors.info,    bg: AppTheme.colors.infoSoft,    label: 'Commissioning' },
+    inactive:     { color: AppTheme.colors.danger,  bg: AppTheme.colors.dangerSoft,  label: 'Inactive' },
+    draft:        { color: AppTheme.colors.mutedText, bg: AppTheme.colors.card,       label: 'Draft' },
+    archived:     { color: AppTheme.colors.mutedText, bg: AppTheme.colors.card,       label: 'Archived' },
+  };
+  const c = cfg[status];
   return (
-    <View style={[styles.chip, { backgroundColor: cfg.bg }]}>
-      <View style={[styles.chipDot, { backgroundColor: cfg.color }]} />
-      <Text style={[styles.chipText, { color: cfg.color }]}>{cfg.label}</Text>
+    <View style={[styles.chip, { backgroundColor: c.bg }]}>
+      <View style={[styles.chipDot, { backgroundColor: c.color }]} />
+      <Text style={[styles.chipText, { color: c.color }]}>{c.label}</Text>
+    </View>
+  );
+}
+
+function GatewayDot({ state }: { state: GatewayState }) {
+  const color =
+    state === 'online' ? AppTheme.colors.success :
+    state === 'offline' ? AppTheme.colors.danger :
+    AppTheme.colors.dimText;
+  const icon =
+    state === 'online' ? 'wifi' :
+    state === 'offline' ? 'wifi-outline' :
+    'hardware-chip-outline';
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      <Ionicons name={icon as any} size={12} color={color} />
+      <Text style={{ color, fontSize: 11, fontWeight: '600' }}>
+        {state === 'no-gateway' ? 'No gateway' : state === 'online' ? 'GW Online' : 'GW Offline'}
+      </Text>
     </View>
   );
 }
@@ -53,23 +81,26 @@ function StatusChip({ status }: { status: 'online' | 'warning' | 'offline' }) {
 function SiteCard({
   site,
   onPress,
-  recentlyVisited = false,
 }: {
   site: SiteItem;
   onPress: () => void;
-  recentlyVisited?: boolean;
 }) {
-  const status = siteStatus(site);
+  const lifecycle = resolveLifecycleStatus(site);
+  const gwState = resolveGatewayState(site);
   const onlineCount = site.devices.filter(d => d.is_online).length;
+
+  const accentColor =
+    lifecycle === 'active' ? AppTheme.colors.accent :
+    lifecycle === 'commissioning' ? AppTheme.colors.info :
+    lifecycle === 'inactive' ? AppTheme.colors.danger :
+    AppTheme.colors.border;
 
   return (
     <Pressable
       style={({ pressed }) => [
         styles.card,
         pressed && styles.cardPressed,
-        status === 'online' && { borderLeftColor: AppTheme.colors.accent, borderLeftWidth: 3 },
-        status === 'warning' && { borderLeftColor: AppTheme.colors.warning, borderLeftWidth: 3 },
-        status === 'offline' && { borderLeftColor: AppTheme.colors.danger, borderLeftWidth: 3 },
+        { borderLeftColor: accentColor, borderLeftWidth: 3 },
       ]}
       onPress={onPress}
     >
@@ -79,18 +110,16 @@ function SiteCard({
           <Text style={styles.cardId}>{site.site_id}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <StatusChip status={status} />
+          <LifecycleChip status={lifecycle} />
           <Ionicons name="chevron-forward" size={16} color={AppTheme.colors.dimText} />
         </View>
       </View>
 
       <View style={styles.cardFooter}>
+        <GatewayDot state={gwState} />
+
         <View style={styles.cardStat}>
-          <Ionicons
-            name="hardware-chip-outline"
-            size={13}
-            color={status === 'online' ? AppTheme.colors.accent : AppTheme.colors.mutedText}
-          />
+          <Ionicons name="hardware-chip-outline" size={13} color={AppTheme.colors.mutedText} />
           <Text style={styles.cardStatText}>
             {onlineCount}/{site.devices.length}
             <Text style={styles.cardStatLabel}> devices</Text>
@@ -100,9 +129,7 @@ function SiteCard({
         {site.capacity_kw != null && (
           <View style={styles.cardStat}>
             <Ionicons name="flash-outline" size={13} color={AppTheme.colors.mutedText} />
-            <Text style={styles.cardStatText}>
-              {site.capacity_kw} kW
-            </Text>
+            <Text style={styles.cardStatText}>{site.capacity_kw} kW</Text>
           </View>
         )}
       </View>
@@ -114,9 +141,9 @@ function SiteCard({
               styles.healthBarFill,
               {
                 width: `${(onlineCount / site.devices.length) * 100}%` as any,
-                backgroundColor: status === 'online' ? AppTheme.colors.accent
-                  : status === 'warning' ? AppTheme.colors.warning
-                  : AppTheme.colors.danger,
+                backgroundColor: gwState === 'online' ? AppTheme.colors.accent
+                  : gwState === 'offline' ? AppTheme.colors.danger
+                  : AppTheme.colors.dimText,
               },
             ]}
           />
@@ -163,10 +190,11 @@ export function WorksitesScreen() {
   const { canCommission, canViewUnassigned } = usePermissions();
 
   const [search, setSearch] = useState('');
+  const [includeInactive, setIncludeInactive] = useState(false);
 
   const { data: sites = [], isLoading: sitesLoading, refetch, isRefetching } = useQuery({
-    queryKey: ['sites'],
-    queryFn: fetchSites,
+    queryKey: ['sites', { includeInactive }],
+    queryFn: () => fetchSites(includeInactive ? { includeInactive: true } : undefined),
     staleTime: 60_000,
   });
 
@@ -253,6 +281,20 @@ export function WorksitesScreen() {
           </Pressable>
         )}
       </View>
+
+      {/* Include inactive toggle — staff/admin only */}
+      {canCommission && (
+        <Pressable
+          style={styles.inactiveToggle}
+          onPress={() => setIncludeInactive(v => !v)}
+          hitSlop={8}
+        >
+          <View style={[styles.inactiveToggleBox, includeInactive && styles.inactiveToggleBoxOn]}>
+            {includeInactive && <Ionicons name="checkmark" size={12} color="#fff" />}
+          </View>
+          <Text style={styles.inactiveToggleText}>Show inactive &amp; archived</Text>
+        </Pressable>
+      )}
 
       {/* Commission CTA — staff/admin only */}
       {canCommission && (
@@ -540,6 +582,32 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 11,
     fontWeight: '700',
+  },
+  inactiveToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 20,
+    marginBottom: 10,
+  },
+  inactiveToggleBox: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: AppTheme.colors.border,
+    backgroundColor: AppTheme.colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inactiveToggleBoxOn: {
+    backgroundColor: AppTheme.colors.accent,
+    borderColor: AppTheme.colors.accent,
+  },
+  inactiveToggleText: {
+    color: AppTheme.colors.mutedText,
+    fontSize: 13,
+    fontWeight: '500',
   },
   pendingCard: {
     backgroundColor: AppTheme.colors.card,

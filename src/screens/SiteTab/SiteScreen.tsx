@@ -105,7 +105,7 @@ export function SiteScreen() {
 
   const { data: sitesData, isRefetching, refetch } = useQuery({
     queryKey: ['sites'],
-    queryFn: fetchSites,
+    queryFn: () => fetchSites(),
     staleTime: 60_000,
     enabled: !!activeSite,
   });

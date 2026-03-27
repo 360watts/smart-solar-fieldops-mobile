@@ -139,6 +139,8 @@ export async function deleteUser(id: number) {
 
 // ── Sites ─────────────────────────────────────────────────────────────────────
 
+export type SiteStatus = 'draft' | 'commissioning' | 'active' | 'inactive' | 'archived';
+
 export type SiteItem = {
   site_id: string;
   display_name: string;
@@ -147,11 +149,49 @@ export type SiteItem = {
   latitude: number | null;
   longitude: number | null;
   timezone: string;
+  is_active?: boolean;
+  updated_at?: string;
+  site_status?: SiteStatus;
   devices: { device_id: number; device_serial: string; is_online: boolean }[];
+  gateway_device?: {
+    is_online?: boolean;
+    last_seen_at?: string | null;
+    signal_strength_dbm?: number | null;
+    heartbeat_health?: { severity?: 'ok' | 'warn' | 'critical' } | null;
+  } | null;
 };
 
-export async function fetchSites() {
-  return apiRequest<SiteItem[]>('/sites/', {}, { auth: 'required' });
+export async function fetchSites(params?: { includeInactive?: boolean }) {
+  const q = params?.includeInactive ? '?include_inactive=1' : '';
+  return apiRequest<SiteItem[]>(`/sites/${q}`, {}, { auth: 'required' });
+}
+
+export async function createSiteStaff(data: {
+  site_id: string;
+  owner_user_id: number;
+  display_name?: string;
+  latitude?: number;
+  longitude?: number;
+  capacity_kw?: number;
+  inverter_capacity_kw?: number;
+  tilt_deg?: number;
+  azimuth_deg?: number;
+  timezone?: string;
+  logger_serial?: number;
+}) {
+  return apiRequest<{ site_id: string; display_name: string }>(
+    '/sites/create/',
+    { method: 'POST', body: JSON.stringify(data) },
+    { auth: 'required' }
+  );
+}
+
+export async function siteAttachDevice(siteId: string, devicePk: number) {
+  return apiRequest(
+    `/sites/${encodeURIComponent(siteId)}/devices/${devicePk}/attach/`,
+    { method: 'POST' },
+    { auth: 'required' }
+  );
 }
 
 
@@ -218,7 +258,9 @@ export async function fetchUserSite(userId: number) {
 
 export async function createUserSite(userId: number, data: {
   site_id: string; display_name: string; capacity_kw?: number | null;
-  latitude?: number | null; longitude?: number | null; timezone?: string;
+  inverter_capacity_kw?: number | null; latitude?: number | null; longitude?: number | null;
+  timezone?: string; tilt_deg?: number | null; azimuth_deg?: number | null;
+  logger_serial?: number | null;
 }) {
   return apiRequest<SiteDetail>(
     `/users/${userId}/site/`,
