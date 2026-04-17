@@ -553,7 +553,7 @@ export function OverviewScreen() {
             <MetricCard
               value={latest ? fmt(loadKw) : '—'}
               unit="kW"
-              label="LOAD"
+              label="SOLAR LOAD"
               accent={AppTheme.colors.info}
             />
             <MetricCard

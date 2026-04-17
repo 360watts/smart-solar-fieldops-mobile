@@ -297,7 +297,7 @@ export function EnergyFlowBlock({
           }]}>
             <Ionicons name="home" size={16} color={isLoadActive ? AppTheme.colors.danger : AppTheme.colors.dimText} />
           </View>
-          <Text style={[styles.nodeLabel, isLoadActive && { color: AppTheme.colors.danger }]}>LOAD</Text>
+          <Text style={[styles.nodeLabel, isLoadActive && { color: AppTheme.colors.danger }]}>SOLAR LOAD</Text>
           <Text style={styles.nodeValue}>{isLoadActive ? fmt(loadKw) : '—'}</Text>
         </Animated.View>
       </View>
