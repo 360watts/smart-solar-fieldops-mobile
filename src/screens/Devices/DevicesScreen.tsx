@@ -8,6 +8,9 @@ import {
   TextInput,
   RefreshControl,
   ActivityIndicator,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,6 +47,118 @@ const GROUP_CFG: Record<DeviceGroup, { color: string; bg: string; icon: string }
   Unknown: { color: AppTheme.colors.dimText, bg: 'rgba(255,255,255,0.05)',    icon: 'help-circle' },
 };
 
+function DevicesKpiBar({ counts }: { counts: { total: number; online: number; offline: number; issues: number } }) {
+  const chips = [
+    { label: 'Total',   val: counts.total,   color: AppTheme.colors.mutedText, bg: AppTheme.colors.card },
+    { label: 'Online',  val: counts.online,  color: AppTheme.colors.success,   bg: AppTheme.colors.successSoft },
+    { label: 'Offline', val: counts.offline, color: AppTheme.colors.danger,    bg: AppTheme.colors.dangerSoft },
+    { label: 'Issues',  val: counts.issues,  color: AppTheme.colors.warning,   bg: AppTheme.colors.warningSoft },
+  ];
+
+  return (
+    <View style={{ flexDirection: 'row', paddingHorizontal: 20, gap: 8, marginBottom: 10 }}>
+      {chips.map(chip => (
+        <View key={chip.label} style={{
+          flex: 1,
+          alignItems: 'center',
+          backgroundColor: chip.bg,
+          borderRadius: AppTheme.radii.md,
+          borderWidth: 1,
+          borderColor: chip.color + '30',
+          paddingVertical: 10,
+        }}>
+          <Text style={{ color: chip.color, fontSize: 18, fontWeight: '800' }}>{chip.val}</Text>
+          <Text style={{ color: chip.color, fontSize: 9, fontWeight: '700', letterSpacing: 0.5, marginTop: 2 }}>
+            {chip.label.toUpperCase()}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function signalLabel(dbm: number | null | undefined): { label: string; color: string; bars: number } {
+  if (dbm == null) return { label: 'Unknown', color: AppTheme.colors.dimText,  bars: 0 };
+  if (dbm >= -60)  return { label: 'Strong',  color: AppTheme.colors.success,  bars: 3 };
+  if (dbm >= -75)  return { label: 'Fair',    color: AppTheme.colors.warning,  bars: 2 };
+  return               { label: 'Weak',    color: AppTheme.colors.danger,   bars: 1 };
+}
+
+function DeviceExpandPanel({ device }: { device: any }) {
+  const sig = signalLabel(device.signal_strength_dbm);
+  const uptimeSecs: number | null = device.uptime_seconds ?? null;
+  const uptimeStr = uptimeSecs != null
+    ? (() => {
+        const h = Math.floor(uptimeSecs / 3600);
+        const m = Math.floor((uptimeSecs % 3600) / 60);
+        return h > 0 ? `${h}h ${m}m` : `${m}m`;
+      })()
+    : null;
+
+  const rows = [
+    device.config_version            ? { label: 'Firmware',     val: device.config_version }                               : null,
+    device.hw_id                     ? { label: 'HW ID',        val: device.hw_id }                                        : null,
+    uptimeStr                        ? { label: 'Uptime',       val: uptimeStr }                                            : null,
+    device.signal_strength_dbm != null ? { label: 'Signal (dBm)', val: `${device.signal_strength_dbm} dBm` }              : null,
+  ].filter(Boolean) as { label: string; val: string }[];
+
+  return (
+    <View style={{
+      backgroundColor: AppTheme.colors.cardElevated,
+      borderLeftWidth: 1,
+      borderRightWidth: 1,
+      borderBottomWidth: 1,
+      borderColor: AppTheme.colors.border,
+      borderBottomLeftRadius: AppTheme.radii.md,
+      borderBottomRightRadius: AppTheme.radii.md,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      marginTop: -AppTheme.radii.md,
+      paddingTop: AppTheme.radii.md + 2,
+      marginBottom: 8,
+    }}>
+      {rows.map((row, i) => (
+        <View key={row.label} style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          paddingVertical: 5,
+          borderBottomWidth: i < rows.length - 1 ? 1 : 0,
+          borderBottomColor: AppTheme.colors.borderMuted,
+        }}>
+          <Text style={{ color: AppTheme.colors.mutedText, fontSize: 12 }}>{row.label}</Text>
+          <Text style={{ color: AppTheme.colors.text, fontSize: 12, fontWeight: '600' }}>{row.val}</Text>
+        </View>
+      ))}
+
+      {device.signal_strength_dbm != null && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+          <Text style={{ color: AppTheme.colors.mutedText, fontSize: 12 }}>Signal</Text>
+          <View style={{ flexDirection: 'row', gap: 3, flex: 1, alignItems: 'flex-end' }}>
+            {[1, 2, 3].map(bar => (
+              <View key={bar} style={{
+                flex: 1,
+                height: bar * 5 + 4,
+                borderRadius: 2,
+                backgroundColor: bar <= sig.bars ? sig.color : AppTheme.colors.border,
+              }} />
+            ))}
+          </View>
+          <Text style={{ color: sig.color, fontSize: 11, fontWeight: '700' }}>{sig.label}</Text>
+        </View>
+      )}
+
+      {device.heartbeat_health?.severity && device.heartbeat_health.severity !== 'ok' && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, backgroundColor: AppTheme.colors.warningSoft, borderRadius: AppTheme.radii.sm, padding: 8 }}>
+          <Ionicons name="warning-outline" size={14} color={AppTheme.colors.warning} />
+          <Text style={{ color: AppTheme.colors.warning, fontSize: 12, fontWeight: '600' }}>
+            Health: {device.heartbeat_health.severity}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 function FilterPill({
   label,
   active,
@@ -70,53 +185,88 @@ function FilterPill({
   );
 }
 
-function DeviceRow({ device, onPress }: { device: any; onPress: () => void }) {
+function DeviceRow({
+  device,
+  expanded,
+  onPressRow,
+  onToggleExpand,
+}: {
+  device: any;
+  expanded: boolean;
+  onPressRow: () => void;
+  onToggleExpand: () => void;
+}) {
   const group = groupDevice(device);
   const cfg = GROUP_CFG[group];
 
   return (
-    <Pressable
-      style={({ pressed }) => [styles.deviceRow, pressed && { opacity: 0.7 }]}
-      onPress={onPress}
-    >
-      <View style={[styles.deviceIconWrap, { backgroundColor: cfg.bg }]}>
-        <Ionicons name="hardware-chip" size={20} color={cfg.color} />
-      </View>
+    <View>
+      <Pressable
+        style={({ pressed }) => [
+          styles.deviceRow,
+          expanded && { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottomColor: 'transparent' },
+          pressed && { opacity: 0.7 },
+        ]}
+        onPress={onPressRow}
+      >
+        <View style={[styles.deviceIconWrap, { backgroundColor: cfg.bg }]}>
+          <Ionicons name="hardware-chip" size={20} color={cfg.color} />
+        </View>
 
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={styles.deviceSerial} numberOfLines={1}>{device.device_serial}</Text>
-        <Text style={styles.deviceMeta} numberOfLines={1}>
-          {device.model ?? 'Unknown model'}
-          {device.hw_id ? ` · ${device.hw_id}` : ''}
-        </Text>
-      </View>
-
-      <View style={styles.deviceRight}>
-        {device.last_heartbeat && (
-          <Text style={styles.lastSeen}>
-            {formatRelativeTime(device.last_heartbeat)}
-          </Text>
-        )}
-        <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
-          <Ionicons name={cfg.icon as any} size={11} color={cfg.color} />
-          <Text style={[styles.statusBadgeText, { color: cfg.color }]}>
-            {device.is_online ? 'Online' : 'Offline'}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={styles.deviceSerial} numberOfLines={1}>{device.device_serial}</Text>
+          <Text style={styles.deviceMeta} numberOfLines={1}>
+            {device.model ?? 'Unknown model'}
           </Text>
         </View>
-      </View>
 
-      <Ionicons name="chevron-forward" size={15} color={AppTheme.colors.dimText} style={{ marginLeft: 8 }} />
-    </Pressable>
+        <View style={styles.deviceRight}>
+          {device.last_heartbeat && (
+            <Text style={styles.lastSeen}>{formatRelativeTime(device.last_heartbeat)}</Text>
+          )}
+          <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
+            <Ionicons name={cfg.icon as any} size={11} color={cfg.color} />
+            <Text style={[styles.statusBadgeText, { color: cfg.color }]}>
+              {device.is_online ? 'Online' : 'Offline'}
+            </Text>
+          </View>
+        </View>
+
+        <Pressable onPress={onToggleExpand} hitSlop={10} style={{ marginLeft: 4 }}>
+          <Ionicons
+            name={expanded ? 'chevron-up' : 'chevron-down'}
+            size={15}
+            color={AppTheme.colors.dimText}
+          />
+        </Pressable>
+      </Pressable>
+
+      {expanded && <DeviceExpandPanel device={device} />}
+    </View>
   );
 }
 
 export function DevicesScreen() {
+  if (Platform.OS === 'android') {
+    UIManager.setLayoutAnimationEnabledExperimental?.(true);
+  }
+
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
   const { activeSite } = useSite();
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterChip>('All');
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpand = useCallback((id: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      return next;
+    });
+  }, []);
 
   // fetchSites gives us which device IDs belong to this site.
   // fetchDevices gives us full device details (model, hw_id, last_heartbeat, etc).
@@ -190,12 +340,20 @@ export function DevicesScreen() {
       .map(g => ({ title: g, data: groups[g] }));
   }, [filtered]);
 
-  const counts = useMemo(() => ({
-    All: siteDevices.length,
-    Online: siteDevices.filter((d: any) => d.is_online).length,
-    Offline: siteDevices.filter((d: any) => !d.is_online).length,
-    Warning: 0,
-  }), [siteDevices]);
+  const counts = useMemo(() => {
+    const online  = siteDevices.filter((d: any) => d.is_online).length;
+    const offline = siteDevices.filter((d: any) => !d.is_online).length;
+    const issues  = siteDevices.filter((d: any) =>
+      d.heartbeat_health?.severity === 'warn' || d.heartbeat_health?.severity === 'critical'
+    ).length;
+    return {
+      All: siteDevices.length,
+      Online: online,
+      Offline: offline,
+      Warning: issues,
+      kpi: { total: siteDevices.length, online, offline, issues },
+    };
+  }, [siteDevices]);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -203,6 +361,10 @@ export function DevicesScreen() {
         <Text style={styles.headerTitle}>Devices</Text>
         <Text style={styles.headerSub}>{activeSite?.display_name}</Text>
       </View>
+
+      {!isLoading && siteDevices.length > 0 && (
+        <DevicesKpiBar counts={counts.kpi} />
+      )}
 
       <View style={styles.searchWrap}>
         <Ionicons name="search-outline" size={17} color={AppTheme.colors.dimText} />
@@ -276,25 +438,30 @@ export function DevicesScreen() {
               </View>
             );
           }}
-          renderItem={({ item }) => (
-            <DeviceRow
-              device={item}
-              onPress={() =>
-                navigation.navigate('DeviceDetail', {
-                  device: {
-                    id: item.device_id ?? item.id,
-                    device_serial: item.device_serial,
-                    user: item.user ?? null,
-                    is_online: item.is_online,
-                    model: item.model,
-                    hw_id: item.hw_id,
-                    last_heartbeat: item.last_heartbeat,
-                    config_version: item.config_version,
-                  } as Device,
-                })
-              }
-            />
-          )}
+          renderItem={({ item }) => {
+            const deviceKey = String(item.device_id ?? item.id);
+            return (
+              <DeviceRow
+                device={item}
+                expanded={expandedIds.has(deviceKey)}
+                onPressRow={() =>
+                  navigation.navigate('DeviceDetail', {
+                    device: {
+                      id: item.device_id ?? item.id,
+                      device_serial: item.device_serial,
+                      user: item.user ?? null,
+                      is_online: item.is_online,
+                      model: item.model,
+                      hw_id: item.hw_id,
+                      last_heartbeat: item.last_heartbeat,
+                      config_version: item.config_version,
+                    } as Device,
+                  })
+                }
+                onToggleExpand={() => toggleExpand(deviceKey)}
+              />
+            );
+          }}
           ListEmptyComponent={
             <View style={styles.empty}>
               <View style={styles.emptyIconWrap}>

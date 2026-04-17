@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Pressable,
   RefreshControl,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,10 +16,12 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { AppTheme } from '../../theme/theme';
-import { fetchSiteTelemetry, fetchSiteAlerts } from '../../api/smartSolar';
+import { fetchSiteTelemetry, fetchSiteAlerts, fetchSiteWeather } from '../../api/smartSolar';
 import { useSite } from '../../site/SiteContext';
 import { toISTDateString, startOfTodayISTIso, formatRelativeTime } from '../../utils/time';
 import { EnergyFlowBlock } from '../../components/EnergyFlowBlock';
+import { WeatherHourlyStrip } from '../../components/WeatherHourlyStrip';
+import { VictoryChart, VictoryArea, VictoryLine, VictoryAxis } from 'victory-native';
 import type { RootStackParamList } from '../../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -144,6 +147,279 @@ function InfoRow({ label, value, valueColor }: { label: string; value: string; v
   );
 }
 
+// ── Energy breakdown ──────────────────────────────────────────────────────
+function EnergyBreakdownSection({ latest }: { latest: Record<string, any> | null }) {
+  if (!latest) return null;
+
+  const gen  = latest.pv_energy_today_kwh   ?? latest.daily_pv_kwh         ?? null;
+  const cons = latest.load_energy_today_kwh  ?? latest.daily_load_kwh        ?? null;
+  const bChg = latest.battery_charge_today_kwh    ?? latest.daily_bat_charge_kwh    ?? null;
+  const bDis = latest.battery_discharge_today_kwh ?? latest.daily_bat_discharge_kwh ?? null;
+  const exp  = latest.grid_export_today_kwh  ?? latest.daily_grid_export_kwh ?? null;
+
+  const selfSuff = (gen != null && exp != null && Number(gen) > 0)
+    ? Math.round(((Number(gen) - Number(exp)) / Number(gen)) * 100)
+    : null;
+
+  const items = [
+    { label: 'Generated',    val: gen,      unit: 'kWh', color: AppTheme.colors.pvColor },
+    { label: 'Consumed',     val: cons,     unit: 'kWh', color: AppTheme.colors.loadColor },
+    { label: 'Self-suff.',   val: selfSuff, unit: '%',   color: AppTheme.colors.accent },
+    { label: 'Bat. Charged', val: bChg,     unit: 'kWh', color: AppTheme.colors.battColor },
+    { label: 'Bat. Dischg.', val: bDis,     unit: 'kWh', color: AppTheme.colors.warning },
+    { label: 'Exported',     val: exp,      unit: 'kWh', color: AppTheme.colors.gridColor },
+  ];
+
+  if (!items.some(i => i.val != null)) return null;
+
+  return (
+    <View style={{
+      backgroundColor: AppTheme.colors.surface,
+      borderRadius: AppTheme.radii.md,
+      borderWidth: 1,
+      borderColor: AppTheme.colors.border,
+      borderTopWidth: 3,
+      borderTopColor: AppTheme.colors.borderAccent,
+      paddingHorizontal: 18,
+      paddingVertical: 16,
+      marginBottom: 10,
+    }}>
+      <Text style={{ color: AppTheme.colors.dimText, fontSize: 10, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 12 }}>
+        TODAY'S ENERGY
+      </Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {items.map(item => (
+          <View key={item.label} style={{
+            flex: 1,
+            minWidth: '30%',
+            backgroundColor: AppTheme.colors.card,
+            borderRadius: AppTheme.radii.sm,
+            borderWidth: 1,
+            borderColor: AppTheme.colors.border,
+            borderBottomWidth: 2,
+            borderBottomColor: item.color,
+            padding: 10,
+            alignItems: 'center',
+          }}>
+            <Text style={{ color: AppTheme.colors.text, fontSize: 16, fontWeight: '800' }}>
+              {item.val != null ? Number(item.val).toFixed(item.unit === '%' ? 0 : 1) : '—'}
+            </Text>
+            <Text style={{ color: item.color, fontSize: 9, fontWeight: '700', letterSpacing: 0.5 }}>
+              {item.unit}
+            </Text>
+            <Text style={{ color: AppTheme.colors.dimText, fontSize: 10, marginTop: 2, textAlign: 'center' }}>
+              {item.label}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ── Site info chips ────────────────────────────────────────────────────────
+function SiteInfoChips({ site }: { site: any }) {
+  const localTime = (() => {
+    try {
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata', hour12: true });
+    } catch { return null; }
+  })();
+
+  const chips = [
+    site.capacity_kw          != null ? { label: 'Capacity',  val: `${site.capacity_kw} kWp` }                           : null,
+    site.inverter_capacity_kw != null ? { label: 'Inverter',  val: `${site.inverter_capacity_kw} kW` }                   : null,
+    (site.latitude != null && site.longitude != null)
+      ? { label: 'Location', val: `${Number(site.latitude).toFixed(4)}, ${Number(site.longitude).toFixed(4)}` }          : null,
+    site.timezone  ? { label: 'Timezone', val: site.timezone }                                                            : null,
+    localTime      ? { label: 'IST',      val: localTime }                                                                : null,
+  ].filter(Boolean) as { label: string; val: string }[];
+
+  if (chips.length === 0) return null;
+
+  return (
+    <View style={{ marginBottom: 10 }}>
+      <Text style={{ color: AppTheme.colors.dimText, fontSize: 10, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, paddingHorizontal: 2 }}>
+        SITE INFO
+      </Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 2 }}>
+        {chips.map(chip => (
+          <View key={chip.label} style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            backgroundColor: AppTheme.colors.cardElevated,
+            borderRadius: AppTheme.radii.full,
+            borderWidth: 1,
+            borderColor: AppTheme.colors.border,
+            paddingHorizontal: 12,
+            paddingVertical: 7,
+          }}>
+            <Text style={{ color: AppTheme.colors.dimText, fontSize: 10, fontWeight: '700', letterSpacing: 0.3 }}>
+              {chip.label.toUpperCase()}
+            </Text>
+            <Text style={{ color: AppTheme.colors.text, fontSize: 12, fontWeight: '600' }}>
+              {chip.val}
+            </Text>
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+// ── Weather card ───────────────────────────────────────────────────────────
+function WeatherCard({ current, hourly }: { current: any | null; hourly: any[] }) {
+  if (!current && (!hourly || hourly.length === 0)) return null;
+  const temp  = current?.temperature_c != null ? `${Number(current.temperature_c).toFixed(1)}°C` : null;
+  const humid = current?.humidity_pct  != null ? `${Math.round(current.humidity_pct)}%` : null;
+  const wind  = current?.wind_speed_ms != null ? `${Number(current.wind_speed_ms).toFixed(1)} m/s` : null;
+  const ghi   = current?.ghi_wm2       != null ? `${Math.round(current.ghi_wm2)} W/m²` : null;
+
+  return (
+    <View style={{ marginBottom: 10 }}>
+      {current && (temp || humid || wind || ghi) && (
+        <View style={{
+          backgroundColor: AppTheme.colors.surface,
+          borderRadius: AppTheme.radii.md,
+          borderWidth: 1,
+          borderColor: AppTheme.colors.border,
+          borderTopWidth: 3,
+          borderTopColor: AppTheme.colors.borderAccent,
+          paddingHorizontal: 18,
+          paddingVertical: 14,
+          marginBottom: 8,
+        }}>
+          <Text style={{ color: AppTheme.colors.dimText, fontSize: 10, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10 }}>
+            WEATHER
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {[
+              { icon: 'thermometer-outline', label: 'Temp',     val: temp  },
+              { icon: 'water-outline',       label: 'Humidity', val: humid },
+              { icon: 'flag-outline',        label: 'Wind',     val: wind  },
+              { icon: 'sunny-outline',       label: 'GHI',      val: ghi   },
+            ].filter(m => m.val).map(m => (
+              <View key={m.label} style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
+                backgroundColor: AppTheme.colors.card,
+                borderRadius: AppTheme.radii.sm,
+                borderWidth: 1,
+                borderColor: AppTheme.colors.border,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+              }}>
+                <Ionicons name={m.icon as any} size={13} color={AppTheme.colors.mutedText} />
+                <Text style={{ color: AppTheme.colors.mutedText, fontSize: 11 }}>{m.label}</Text>
+                <Text style={{ color: AppTheme.colors.text, fontSize: 12, fontWeight: '700' }}>{m.val}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+      {hourly && hourly.length > 0 && <WeatherHourlyStrip hourly={hourly} />}
+    </View>
+  );
+}
+
+// ── Mini PV+Load chart ─────────────────────────────────────────────────────
+function MiniPVChart({ telemetry }: { telemetry: Record<string, any>[] }) {
+  const { width } = useWindowDimensions();
+
+  const data = useMemo(() => {
+    return telemetry
+      .filter(row => row.timestamp)
+      .map(row => {
+        const pvKw = (
+          Number(row.pv1_power_w ?? 0) +
+          Number(row.pv2_power_w ?? 0) +
+          Number(row.pv3_power_w ?? 0) +
+          Number(row.pv4_power_w ?? 0)
+        ) / 1000;
+        return {
+          x: new Date(row.timestamp).getTime(),
+          pv: pvKw,
+          load: Number(row.load_power_w ?? 0) / 1000,
+        };
+      })
+      .filter(d => Number.isFinite(d.x) && d.x > 0);
+  }, [telemetry]);
+
+  if (data.length < 2) return null;
+
+  const pvData   = data.map(d => ({ x: d.x, y: d.pv }));
+  const loadData = data.map(d => ({ x: d.x, y: d.load }));
+  const maxY     = Math.max(...data.map(d => Math.max(d.pv, d.load)), 0.5);
+  const chartW   = Math.max(280, width - 32);
+
+  return (
+    <View style={{
+      backgroundColor: AppTheme.colors.surface,
+      borderRadius: AppTheme.radii.md,
+      borderWidth: 1,
+      borderColor: AppTheme.colors.border,
+      borderTopWidth: 3,
+      borderTopColor: AppTheme.colors.borderAccent,
+      marginBottom: 10,
+      overflow: 'hidden',
+    }}>
+      <Text style={{ color: AppTheme.colors.dimText, fontSize: 10, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase', paddingHorizontal: 18, paddingTop: 14, marginBottom: 4 }}>
+        TODAY'S GENERATION
+      </Text>
+      <VictoryChart
+        width={chartW}
+        height={160}
+        padding={{ top: 8, bottom: 28, left: 36, right: 12 }}
+        domain={{ y: [0, maxY * 1.15] }}
+      >
+        <VictoryArea
+          data={pvData}
+          style={{ data: { fill: AppTheme.colors.pvColor + '26', stroke: AppTheme.colors.pvColor, strokeWidth: 2 } }}
+          interpolation="monotoneX"
+        />
+        <VictoryLine
+          data={loadData}
+          style={{ data: { stroke: AppTheme.colors.loadColor, strokeWidth: 1.5, strokeDasharray: '4,3' } }}
+          interpolation="monotoneX"
+        />
+        <VictoryAxis
+          style={{
+            axis: { stroke: AppTheme.colors.border },
+            tickLabels: { fill: AppTheme.colors.dimText, fontSize: 9 },
+            grid: { stroke: 'transparent' },
+          }}
+          tickCount={4}
+          tickFormat={(x: any) => {
+            const d = new Date(x);
+            return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+          }}
+        />
+        <VictoryAxis
+          dependentAxis
+          style={{
+            axis: { stroke: 'transparent' },
+            tickLabels: { fill: AppTheme.colors.dimText, fontSize: 9 },
+            grid: { stroke: AppTheme.colors.borderMuted },
+          }}
+          tickFormat={(y: any) => `${Number(y).toFixed(1)}`}
+        />
+      </VictoryChart>
+      <View style={{ flexDirection: 'row', gap: 14, paddingHorizontal: 18, paddingBottom: 12 }}>
+        {[
+          { color: AppTheme.colors.pvColor,   label: 'Solar' },
+          { color: AppTheme.colors.loadColor, label: 'Load'  },
+        ].map(s => (
+          <View key={s.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <View style={{ width: 14, height: 2, borderRadius: 1, backgroundColor: s.color }} />
+            <Text style={{ color: AppTheme.colors.dimText, fontSize: 11 }}>{s.label}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 // ── Main screen ─────────────────────────────────────────────────────────────
 export function OverviewScreen() {
   const insets       = useSafeAreaInsets();
@@ -178,9 +454,19 @@ export function OverviewScreen() {
     meta: { persist: false },
   });
 
+  const { data: weatherData } = useQuery({
+    queryKey: ['siteWeather', activeSite?.site_id],
+    queryFn:  () => fetchSiteWeather(activeSite!.site_id),
+    enabled:  !!activeSite,
+    staleTime: 10 * 60_000,
+    retry: 0,
+    meta: { persist: false },
+  });
+
   const onRefresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['telemetry', activeSite?.site_id] });
     queryClient.invalidateQueries({ queryKey: ['siteAlerts', activeSite?.site_id] });
+    queryClient.invalidateQueries({ queryKey: ['siteWeather', activeSite?.site_id] });
   }, [queryClient, activeSite]);
 
   const latest      = telemetry && telemetry.length > 0 ? telemetry[telemetry.length - 1] : null;
@@ -298,6 +584,24 @@ export function OverviewScreen() {
           </View>
         )}
 
+        {/* ── Weather ───────────────────────────────────────────────── */}
+        {(weatherData?.current || (weatherData?.hourly_forecast?.length ?? 0) > 0) && (
+          <WeatherCard
+            current={weatherData?.current ?? null}
+            hourly={weatherData?.hourly_forecast ?? []}
+          />
+        )}
+
+        {/* ── Today's Energy ─────────────────────────────────────────── */}
+        {!telLoading && latest && (
+          <EnergyBreakdownSection latest={latest} />
+        )}
+
+        {/* ── Mini PV + Load chart ──────────────────────────────────── */}
+        {!telLoading && telemetry && telemetry.length >= 2 && (
+          <MiniPVChart telemetry={telemetry} />
+        )}
+
         {/* ── System status card ────────────────────────────────────── */}
         {!telLoading && (
           <View style={styles.section}>
@@ -323,6 +627,11 @@ export function OverviewScreen() {
               />
             )}
           </View>
+        )}
+
+        {/* ── Site info chips ──────────────────────────────────────── */}
+        {!telLoading && activeSite && (
+          <SiteInfoChips site={activeSite} />
         )}
 
         {/* ── Active alerts preview ─────────────────────────────────── */}

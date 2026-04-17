@@ -4,10 +4,13 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  ScrollView,
   Pressable,
   RefreshControl,
   ActivityIndicator,
   Alert,
+  TextInput,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +21,7 @@ import { fetchSiteAlerts, acknowledgeAlert, resolveAlert } from '../../api/smart
 import type { AlertItem } from '../../api/smartSolar';
 import { useSite } from '../../site/SiteContext';
 import { usePermissions } from '../../auth/usePermissions';
-import { formatISTTime } from '../../utils/time';
+import { formatISTTime, fmtDateTimeIST } from '../../utils/time';
 
 type SeverityFilter = 'All' | 'Critical' | 'Warning' | 'Info';
 type StatusFilter = 'Active' | 'Resolved';
@@ -30,6 +33,154 @@ const SEVERITY_CFG = {
   warning:  { color: AppTheme.colors.warning, bg: AppTheme.colors.warningSoft, icon: 'warning',        label: 'Warning' },
   info:     { color: AppTheme.colors.info,    bg: AppTheme.colors.infoSoft,    icon: 'information-circle', label: 'Info' },
 } as const;
+
+function AlertsKpiBar({
+  onFilterActive,
+  onFilterCritical,
+  counts,
+}: {
+  onFilterActive: () => void;
+  onFilterCritical: () => void;
+  counts: { active: number; critical: number; acknowledged: number; total: number };
+}) {
+  const chips = [
+    { label: 'Active',   val: counts.active,       color: AppTheme.colors.danger,    bg: AppTheme.colors.dangerSoft,  onPress: onFilterActive },
+    { label: 'Critical', val: counts.critical,     color: AppTheme.colors.danger,    bg: AppTheme.colors.dangerSoft,  onPress: onFilterCritical },
+    { label: "Ack'd",    val: counts.acknowledged, color: AppTheme.colors.warning,   bg: AppTheme.colors.warningSoft, onPress: undefined as (() => void) | undefined },
+    { label: 'Total',    val: counts.total,        color: AppTheme.colors.mutedText, bg: AppTheme.colors.card,        onPress: undefined as (() => void) | undefined },
+  ];
+
+  return (
+    <View style={{ flexDirection: 'row', paddingHorizontal: 20, gap: 8, marginBottom: 10 }}>
+      {chips.map(chip => (
+        <Pressable
+          key={chip.label}
+          onPress={chip.onPress}
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            backgroundColor: chip.bg,
+            borderRadius: AppTheme.radii.md,
+            borderWidth: 1,
+            borderColor: chip.color + '30',
+            paddingVertical: 10,
+          }}
+        >
+          <Text style={{ color: chip.color, fontSize: 18, fontWeight: '800' }}>{chip.val}</Text>
+          <Text style={{ color: chip.color, fontSize: 9, fontWeight: '700', letterSpacing: 0.5, marginTop: 2 }}>
+            {chip.label.toUpperCase()}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+function AlertDetailSheet({
+  alert,
+  onClose,
+  onAcknowledge,
+  onResolve,
+  canAct,
+}: {
+  alert: AlertItem | null;
+  onClose: () => void;
+  onAcknowledge: (id: string) => void;
+  onResolve: (id: string) => void;
+  canAct: boolean;
+}) {
+  if (!alert) return null;
+  const cfg = SEVERITY_CFG[alert.severity] ?? SEVERITY_CFG.info;
+  const isResolved     = alert.status === 'resolved';
+  const isAcknowledged = alert.status === 'acknowledged';
+  const isPersistent   = /^\d+$/.test(alert.id);
+
+  return (
+    <Modal
+      visible
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+      transparent={false}
+    >
+      <View style={{ flex: 1, backgroundColor: AppTheme.colors.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
+        <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 8 }}>
+          <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: AppTheme.colors.border }} />
+        </View>
+
+        <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 48, gap: 16 }} showsVerticalScrollIndicator={false}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+            <View style={{ padding: 10, borderRadius: AppTheme.radii.md, backgroundColor: cfg.bg }}>
+              <Ionicons name={cfg.icon as any} size={24} color={cfg.color} />
+            </View>
+            <Text style={{ flex: 1, color: AppTheme.colors.text, fontSize: 16, fontWeight: '700', lineHeight: 22 }}>
+              {alert.message}
+            </Text>
+          </View>
+
+          {isResolved && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: AppTheme.colors.successSoft, borderRadius: AppTheme.radii.md, padding: 12 }}>
+              <Ionicons name="checkmark-circle" size={16} color={AppTheme.colors.success} />
+              <Text style={{ color: AppTheme.colors.success, fontSize: 13, fontWeight: '600' }}>This alert has been resolved</Text>
+            </View>
+          )}
+
+          <View style={{ backgroundColor: AppTheme.colors.card, borderRadius: AppTheme.radii.md, borderWidth: 1, borderColor: AppTheme.colors.border, overflow: 'hidden' }}>
+            {([
+              { label: 'Alert ID',   val: alert.id },
+              { label: 'Severity',   val: cfg.label },
+              { label: 'Status',     val: alert.status ?? 'active' },
+              { label: 'Device',     val: alert.device_id ?? '—' },
+              { label: 'Triggered',  val: fmtDateTimeIST(alert.timestamp) },
+              alert.fault_code ? { label: 'Fault Code', val: alert.fault_code } : null,
+            ].filter(Boolean) as { label: string; val: string }[]).map((row, i, arr) => (
+              <View key={row.label} style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                borderBottomWidth: i < arr.length - 1 ? 1 : 0,
+                borderBottomColor: AppTheme.colors.borderMuted,
+              }}>
+                <Text style={{ color: AppTheme.colors.mutedText, fontSize: 13 }}>{row.label}</Text>
+                <Text style={{ color: AppTheme.colors.text, fontSize: 13, fontWeight: '600', maxWidth: '60%', textAlign: 'right' }}>{row.val}</Text>
+              </View>
+            ))}
+          </View>
+
+          {canAct && !isResolved && isPersistent && (
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {!isAcknowledged && (
+                <Pressable
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, borderRadius: AppTheme.radii.md, backgroundColor: AppTheme.colors.warningSoft }}
+                  onPress={() => { onAcknowledge(alert.id); onClose(); }}
+                >
+                  <Ionicons name="checkmark-outline" size={16} color={AppTheme.colors.warning} />
+                  <Text style={{ color: AppTheme.colors.warning, fontSize: 14, fontWeight: '700' }}>Acknowledge</Text>
+                </Pressable>
+              )}
+              <Pressable
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, borderRadius: AppTheme.radii.md, backgroundColor: AppTheme.colors.successSoft }}
+                onPress={() => { onResolve(alert.id); onClose(); }}
+              >
+                <Ionicons name="checkmark-done-outline" size={16} color={AppTheme.colors.success} />
+                <Text style={{ color: AppTheme.colors.success, fontSize: 14, fontWeight: '700' }}>Resolve</Text>
+              </Pressable>
+            </View>
+          )}
+
+          <Pressable
+            style={{ alignItems: 'center', paddingVertical: 14, borderRadius: AppTheme.radii.md, backgroundColor: AppTheme.colors.card, borderWidth: 1, borderColor: AppTheme.colors.border }}
+            onPress={onClose}
+          >
+            <Text style={{ color: AppTheme.colors.mutedText, fontSize: 14, fontWeight: '600' }}>Done</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
 
 function SeverityChip({
   label,
@@ -70,11 +221,13 @@ function AlertCard({
   alert,
   onAcknowledge,
   onResolve,
+  onViewDetail,
   canAct,
 }: {
   alert: AlertItem;
   onAcknowledge: (id: string) => void;
   onResolve: (id: string) => void;
+  onViewDetail: (a: AlertItem) => void;
   canAct: boolean;
 }) {
   const cfg = SEVERITY_CFG[alert.severity] ?? SEVERITY_CFG.info;
@@ -82,7 +235,10 @@ function AlertCard({
   const isAcknowledged = alert.status === 'acknowledged';
 
   return (
-    <View style={[styles.alertCard, { borderLeftColor: cfg.color }, isResolved && styles.alertCardResolved]}>
+    <Pressable
+      style={({ pressed }) => [styles.alertCard, { borderLeftColor: cfg.color }, isResolved && styles.alertCardResolved, pressed && { opacity: 0.85 }]}
+      onPress={() => onViewDetail(alert)}
+    >
       {/* Severity header */}
       <View style={styles.alertHeader}>
         <View style={[styles.severityBadge, { backgroundColor: cfg.bg }]}>
@@ -138,7 +294,7 @@ function AlertCard({
           </Pressable>
         </View>
       )}
-    </View>
+    </Pressable>
   );
 }
 
@@ -150,6 +306,8 @@ export function AlertsScreen() {
 
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('All');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('Active');
+  const [search, setSearch] = useState('');
+  const [selectedAlert, setSelectedAlert] = useState<AlertItem | null>(null);
 
   const { data: alerts = [], isLoading, isRefetching, refetch } = useQuery({
     queryKey: ['siteAlerts', activeSite?.site_id],
@@ -174,19 +332,25 @@ export function AlertsScreen() {
   const filtered = useMemo(() => {
     let result = alerts;
 
-    // Status filter
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(a =>
+        a.message.toLowerCase().includes(q) ||
+        (a.device_id ?? '').toLowerCase().includes(q) ||
+        ((a as any).fault_code ?? '').toLowerCase().includes(q)
+      );
+    }
+
     if (statusFilter === 'Active') {
       result = result.filter(a => a.status !== 'resolved');
     } else {
       result = result.filter(a => a.status === 'resolved');
     }
 
-    // Severity filter
     if (severityFilter !== 'All') {
       result = result.filter(a => a.severity === severityFilter.toLowerCase());
     }
 
-    // Sort: critical first, then warning, then info; within each, unresolved first, newest last
     return [...result].sort((a, b) => {
       const sev = { critical: 0, warning: 1, info: 2 };
       const sA = sev[a.severity] ?? 3;
@@ -194,15 +358,21 @@ export function AlertsScreen() {
       if (sA !== sB) return sA - sB;
       return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
     });
-  }, [alerts, severityFilter, statusFilter]);
+  }, [alerts, severityFilter, statusFilter, search]);
 
   const counts = useMemo(() => {
     const active = alerts.filter(a => a.status !== 'resolved');
     return {
-      All: active.length,
+      All:      active.length,
       Critical: active.filter(a => a.severity === 'critical').length,
-      Warning: active.filter(a => a.severity === 'warning').length,
-      Info: active.filter(a => a.severity === 'info').length,
+      Warning:  active.filter(a => a.severity === 'warning').length,
+      Info:     active.filter(a => a.severity === 'info').length,
+      kpi: {
+        active:       active.length,
+        critical:     active.filter(a => a.severity === 'critical').length,
+        acknowledged: active.filter(a => a.status === 'acknowledged').length,
+        total:        alerts.length,
+      },
     };
   }, [alerts]);
 
@@ -239,6 +409,32 @@ export function AlertsScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Alerts</Text>
         <Text style={styles.headerSub}>{activeSite?.display_name}</Text>
+      </View>
+
+      {/* KPI summary bar */}
+      <AlertsKpiBar
+        counts={counts.kpi}
+        onFilterActive={() => { setStatusFilter('Active'); setSeverityFilter('All'); setSearch(''); }}
+        onFilterCritical={() => { setStatusFilter('Active'); setSeverityFilter('Critical'); setSearch(''); }}
+      />
+
+      {/* Search */}
+      <View style={styles.searchWrap}>
+        <Ionicons name="search-outline" size={17} color={AppTheme.colors.dimText} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search message, device, fault…"
+          placeholderTextColor={AppTheme.colors.dimText}
+          value={search}
+          onChangeText={setSearch}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {search.length > 0 && (
+          <Pressable onPress={() => setSearch('')} hitSlop={8}>
+            <Ionicons name="close-circle" size={16} color={AppTheme.colors.dimText} />
+          </Pressable>
+        )}
       </View>
 
       {/* Status toggle */}
@@ -292,6 +488,7 @@ export function AlertsScreen() {
               alert={item}
               onAcknowledge={onAcknowledge}
               onResolve={onResolve}
+              onViewDetail={setSelectedAlert}
               canAct={canAcknowledgeAlerts && canResolveAlerts}
             />
           )}
@@ -316,6 +513,14 @@ export function AlertsScreen() {
           }
         />
       )}
+
+      <AlertDetailSheet
+        alert={selectedAlert}
+        onClose={() => setSelectedAlert(null)}
+        onAcknowledge={onAcknowledge}
+        onResolve={onResolve}
+        canAct={canAcknowledgeAlerts && canResolveAlerts}
+      />
     </View>
   );
 }
@@ -481,4 +686,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 24,
   },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppTheme.colors.card,
+    borderRadius: AppTheme.radii.md,
+    borderWidth: 1,
+    borderColor: AppTheme.colors.border,
+    marginHorizontal: 20,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    height: 42,
+    gap: 8,
+  },
+  searchInput: { flex: 1, color: AppTheme.colors.text, fontSize: 14, paddingVertical: 0 },
 });
