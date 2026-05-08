@@ -61,6 +61,38 @@ export async function fetchSiteHistory(siteId: string, params: { start_date: str
   return apiRequest<TelemetryRow[]>(`/sites/${siteId}/history/?${qs.toString()}`, {}, { auth: 'required' });
 }
 
+export type EnergySummaryRow = {
+  period_start: string;         // IST ISO string (e.g. '2026-04-20T00:00:00+05:30')
+  pv_gen_kwh: number;
+  load_kwh: number;
+  grid_import_kwh: number;
+  grid_export_kwh: number;
+  batt_charge_kwh: number;
+  batt_discharge_kwh: number;
+  avg_soc: number | null;
+  // daily only
+  min_soc?: number | null;
+  max_soc?: number | null;
+  sample_count?: number;
+  // monthly/yearly only
+  days_with_data?: number;
+};
+
+// Granularity guide (matches industry convention — Enphase, SolarEdge, Fronius):
+//   'daily'   → 1 row/day   → use for Week view (7 bars) and Month view (~30 bars)
+//   'monthly' → 1 row/month → use for Year view (12 bars)
+//   'yearly'  → 1 row/year  → use for Lifetime view
+export async function fetchEnergySummary(
+  siteId: string,
+  granularity: 'daily' | 'monthly' | 'yearly',
+  params?: { start?: string; end?: string },
+) {
+  const qs = new URLSearchParams({ granularity });
+  if (params?.start) qs.set('start', params.start);
+  if (params?.end)   qs.set('end', params.end);
+  return apiRequest<EnergySummaryRow[]>(`/sites/${siteId}/energy-summary/?${qs.toString()}`, {}, { auth: 'required' });
+}
+
 export async function fetchSiteWeather(siteId: string) {
   return apiRequest<{
     current: any | null;
